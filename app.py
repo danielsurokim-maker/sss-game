@@ -5,65 +5,41 @@ import pandas as pd
 st.set_page_config(layout="wide")
 
 # ---------------------------
-# 초기 상태
+# 초기화
 # ---------------------------
 if "init" not in st.session_state:
     st.session_state.init = True
+    st.session_state.stage = "decision"
+
     st.session_state.year = 2025
     st.session_state.quarter = 1
+
     st.session_state.cash = 10000
-    st.session_state.debt = 0
-    st.session_state.tech_node = 10  # nm
-    st.session_state.ddi_perf = 1.0
+    st.session_state.tech = 1.0
     st.session_state.yield_rate = 0.7
     st.session_state.capacity = 100
     st.session_state.inventory = 20
     st.session_state.reputation = 50
+
     st.session_state.history = []
 
 # ---------------------------
-# 경쟁사
+# 경쟁사 (간단)
 # ---------------------------
 competitors = {
-    "BOE": {"price": 90, "tech": 1.0},
-    "LG Display": {"price": 100, "tech": 1.2},
+    "BOE": {"price": 90},
+    "LG Display": {"price": 100}
 }
-
-# ---------------------------
-# UI
-# ---------------------------
-st.title("📱 Samsung Semiconductor Survival (SSS) Game")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("📊 현재 상태")
-    st.write(f"Year: {st.session_state.year} Q{st.session_state.quarter}")
-    st.write(f"Cash: {st.session_state.cash}")
-    st.write(f"Debt: {st.session_state.debt}")
-    st.write(f"Tech Node: {st.session_state.tech_node}nm")
-    st.write(f"DDI 성능: {round(st.session_state.ddi_perf,2)}")
-    st.write(f"Yield: {round(st.session_state.yield_rate,2)}")
-    st.write(f"Capacity: {st.session_state.capacity}")
-    st.write(f"Inventory: {st.session_state.inventory}")
-    st.write(f"Reputation: {st.session_state.reputation}")
-
-with col2:
-    st.subheader("🏭 의사결정 (3개)")
-    rd = st.slider("R&D 투자", 0, 3000, 1000)
-    capex = st.slider("CAPEX 투자", 0, 3000, 1000)
-    price = st.slider("제품 가격", 50, 150, 100)
 
 # ---------------------------
 # 이벤트
 # ---------------------------
 def get_event():
     events = [
-        ("반도체 Shortage 🔥", 1.3, 1.1),
-        ("경기 침체 ❄️", 0.8, 0.9),
-        ("고객사 스펙 변경 ⚠️", 0.9, 0.95),
-        ("개발 지연 ⏳", 0.85, 0.9),
-        ("중국 보조금 확대 🇨🇳", 0.9, 1.0),
+        ("🔥 반도체 Shortage", 1.3, 1.0),
+        ("❄️ 경기 침체", 0.8, 0.9),
+        ("⚠️ 고객사 스펙 변경", 0.9, 0.95),
+        ("⏳ 개발 지연", 0.85, 0.9),
     ]
     return random.choice(events)
 
@@ -72,7 +48,7 @@ def get_event():
 # ---------------------------
 def calc_demand(price, tech, reputation):
     base = 100
-    demand = base * (tech) * (reputation/50)
+    demand = base * tech * (reputation / 50)
 
     if price < 90:
         demand *= 1.2
@@ -82,27 +58,93 @@ def calc_demand(price, tech, reputation):
     return int(demand)
 
 # ---------------------------
-# 실행
+# 상단 상태바
 # ---------------------------
-if st.button("➡️ 다음 분기 진행"):
+st.title("📱 SSS Game V3")
 
+st.write(f"📅 {st.session_state.year}년 {st.session_state.quarter}분기")
+st.write(f"💰 Cash: {st.session_state.cash} | 🧠 Tech: {round(st.session_state.tech,2)} | 🏭 Yield: {round(st.session_state.yield_rate,2)}")
+
+st.divider()
+
+# ==================================================
+# 1️⃣ 의사결정 화면
+# ==================================================
+if st.session_state.stage == "decision":
+
+    st.header("📊 전략 선택")
+
+    rd_choice = st.radio(
+        "R&D 전략",
+        ["보수적 투자 (500)", "균형 투자 (1000)", "공격 투자 (2000)"]
+    )
+
+    capex_choice = st.radio(
+        "CAPEX 전략",
+        ["축소 (500)", "유지 (1000)", "확대 (2000)"]
+    )
+
+    price_choice = st.radio(
+        "가격 전략",
+        ["프리미엄 (120)", "균형 (100)", "덤핑 (80)"]
+    )
+
+    st.info("💡 공격 투자 = 기술↑ but 현금 리스크 ↑")
+
+    if st.button("➡️ 결정 완료"):
+        st.session_state.rd_choice = rd_choice
+        st.session_state.capex_choice = capex_choice
+        st.session_state.price_choice = price_choice
+        st.session_state.stage = "result"
+
+# ==================================================
+# 2️⃣ 결과 화면
+# ==================================================
+elif st.session_state.stage == "result":
+
+    st.header("📉 분기 결과")
+
+    # 선택값 매핑
+    rd_map = {
+        "보수적 투자 (500)": 500,
+        "균형 투자 (1000)": 1000,
+        "공격 투자 (2000)": 2000
+    }
+
+    capex_map = {
+        "축소 (500)": 500,
+        "유지 (1000)": 1000,
+        "확대 (2000)": 2000
+    }
+
+    price_map = {
+        "프리미엄 (120)": 120,
+        "균형 (100)": 100,
+        "덤핑 (80)": 80
+    }
+
+    rd = rd_map[st.session_state.rd_choice]
+    capex = capex_map[st.session_state.capex_choice]
+    price = price_map[st.session_state.price_choice]
+
+    # 이벤트
     event, demand_mult, tech_mult = get_event()
+
+    st.success(f"📢 이벤트: {event}")
 
     # 투자 반영
     st.session_state.cash -= (rd + capex)
 
-    # 기술 향상
-    st.session_state.ddi_perf += rd * 0.0005
+    # 기술
+    st.session_state.tech += rd * 0.0005
     st.session_state.yield_rate += rd * 0.0001
+    st.session_state.tech *= tech_mult
 
-    # 설비 증가
+    # 설비
     st.session_state.capacity += int(capex * 0.02)
 
-    # 이벤트 반영
-    st.session_state.ddi_perf *= tech_mult
-
-    # 수요 계산
-    demand = calc_demand(price, st.session_state.ddi_perf, st.session_state.reputation)
+    # 수요
+    demand = calc_demand(price, st.session_state.tech, st.session_state.reputation)
     demand = int(demand * demand_mult)
 
     # 생산
@@ -111,55 +153,63 @@ if st.button("➡️ 다음 분기 진행"):
     # 판매
     sales = min(production + st.session_state.inventory, demand)
 
-    # 재고 업데이트
+    # 재고
     st.session_state.inventory = production + st.session_state.inventory - sales
 
-    # 매출
+    # 매출 / 비용
     revenue = sales * price
-
-    # 비용
     cost = production * 60
+    op_profit = revenue - cost
 
-    operating_profit = revenue - cost
+    st.session_state.cash += op_profit
 
-    # 현금 반영
-    st.session_state.cash += operating_profit
-
-    # 평판 변화
+    # 평판
     if sales < demand:
         st.session_state.reputation -= 2
     else:
         st.session_state.reputation += 1
+
+    # 결과 출력
+    st.write(f"📦 판매량: {sales}")
+    st.write(f"💵 매출: {revenue}")
+    st.write(f"📈 영업이익: {op_profit}")
+    st.write(f"🏦 현금: {st.session_state.cash}")
 
     # 기록
     st.session_state.history.append({
         "Year": st.session_state.year,
         "Q": st.session_state.quarter,
         "Revenue": revenue,
-        "Op Profit": operating_profit,
+        "Op Profit": op_profit,
         "Cash": st.session_state.cash
     })
 
-    # 시간 흐름
-    st.session_state.quarter += 1
-    if st.session_state.quarter > 4:
-        st.session_state.quarter = 1
-        st.session_state.year += 1
+    if st.button("📊 다음 단계"):
+        st.session_state.stage = "summary"
 
-    st.success(f"이벤트 발생: {event}")
+# ==================================================
+# 3️⃣ 요약 화면
+# ==================================================
+elif st.session_state.stage == "summary":
+
+    st.header("📊 성과 요약")
+
+    if len(st.session_state.history) > 0:
+        df = pd.DataFrame(st.session_state.history)
+
+        st.line_chart(df[["Revenue", "Op Profit"]])
+        st.dataframe(df.tail(8))
+
+    if st.button("➡️ 다음 분기 진행"):
+        st.session_state.quarter += 1
+        if st.session_state.quarter > 4:
+            st.session_state.quarter = 1
+            st.session_state.year += 1
+
+        st.session_state.stage = "decision"
 
 # ---------------------------
-# 재무 출력
-# ---------------------------
-st.subheader("📈 현금흐름 / 성과")
-
-if len(st.session_state.history) > 0:
-    df = pd.DataFrame(st.session_state.history)
-    st.line_chart(df.set_index(df.index)[["Revenue", "Op Profit"]])
-    st.dataframe(df.tail(10))
-
-# ---------------------------
-# 게임 오버
+# 게임오버
 # ---------------------------
 if st.session_state.cash <= 0:
     st.error("💀 파산! 게임 종료")
